@@ -47,3 +47,41 @@ e. Generate thumbnails: call `mcp__kie-art__generate_image` 2-3 times
 
 f. Keep all local file paths from steps c-e in memory for the assembly
    step (see "Generate mode — assembly and delivery" below).
+
+g. For each format in `config.yaml`'s `formats` list, invoke the
+   `remotion-render` skill against `<ProjectFolder>/remotion/`,
+   composition `Vertical` for `9:16` / `Horizontal` for `16:9`, passing
+   props `{ narrationAudioPath, visualClipPaths, title: <winning title
+   proposal>, musicPath: undefined }`. Same retry/failure handling as
+   step c (Telegram error + stop, leave topic at `À faire`).
+
+h. Use ToolSearch (query: "google drive") to load the Google Drive MCP
+   tools, and upload each rendered mp4 and each thumbnail image into a
+   Drive folder named `<config.name>/<YYYY-MM>/`, creating it if it
+   does not exist. Collect a shareable link per uploaded file.
+
+i. Using the Telegram send procedure: send one text message containing
+   `telegram_label`, the topic text, the 3 title/description/hashtags
+   proposals, and the Drive links (one per rendered format); then send
+   each thumbnail as a separate photo message. Record the `message_id`
+   of the first (text) message.
+
+j. Move the topic's line from `## À faire` to
+   `## Généré (en attente de validation Telegram)` in the calendar
+   file, appending ` | telegram_message_id: <id>` from step i.
+
+k. Update `state/telegram.json`: set
+   `pending["<message_id>"] = {"project": "<slug>", "type": "topic", "topic_date": "<date>"}`.
+
+## Telegram send procedure
+
+To send a text message:
+`curl -s "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" -d chat_id="$TELEGRAM_CHAT_ID" -d text="<text>"`
+The response's `result.message_id` is the Telegram message id to record in state.
+
+To send a photo:
+`curl -s -F chat_id="$TELEGRAM_CHAT_ID" -F photo=@<local_path> "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendPhoto"`
+
+On any non-`"ok":true` response: retry once; on a second failure, let
+the routine exit with an error (visible in the routine's run log) —
+do not attempt a Telegram error notification for a Telegram failure.

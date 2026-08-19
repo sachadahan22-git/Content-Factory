@@ -55,17 +55,33 @@ g. For each format in `config.yaml`'s `formats` list, invoke the
    proposal>, musicPath: undefined }`. Same retry/failure handling as
    step c (Telegram error + stop, leave topic at `À faire`).
 
-h. Using the Telegram send procedure: send one text message containing
-   `telegram_label`, the topic text, and the 3 title/description/hashtags
-   proposals; then send each rendered video as a separate video message;
-   then send each thumbnail as a separate photo message. Record the
-   `message_id` of the first (text) message.
+h. Save the full script text (from step b) to Google Drive. Use
+   ToolSearch (query: "google drive") to load the Drive MCP tools.
+   Find or create a folder named `<config.name>` at Drive root, then
+   find or create a `<YYYY-MM>` subfolder inside it (`create_file` with
+   `contentMimeType: "application/vnd.google-apps.folder"` and,
+   for the subfolder, `parentId` set to the parent folder's id).
+   Create a text file inside that month folder named
+   `<topic-date>-script.txt` via `create_file` with
+   `contentMimeType: "text/plain"`, the script text as content, the
+   month folder's id as `parentId`, and `disableConversionToGoogleType:
+   true`. The response's `viewUrl` is the script's Drive link. Same
+   retry/failure handling as step c, except: if it fails twice, don't
+   block video delivery — note in the Telegram message (step i) that
+   the script archive step failed, and continue.
 
-i. Move the topic's line from `## À faire` to
+i. Using the Telegram send procedure: send one text message containing
+   `telegram_label`, the topic text, the 3 title/description/hashtags
+   proposals, and the Drive script link from step h; then send each
+   rendered video as a separate video message; then send each
+   thumbnail as a separate photo message. Record the `message_id` of
+   the first (text) message.
+
+j. Move the topic's line from `## À faire` to
    `## Généré (en attente de validation Telegram)` in the calendar
-   file, appending ` | telegram_message_id: <id>` from step h.
+   file, appending ` | telegram_message_id: <id>` from step i.
 
-j. Update `state/telegram.json`: set
+k. Update `state/telegram.json`: set
    `pending["<message_id>"] = {"project": "<slug>", "type": "topic", "topic_date": "<date>"}`.
 
 ## Telegram send procedure

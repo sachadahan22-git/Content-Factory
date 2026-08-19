@@ -175,7 +175,19 @@ Décision (validée avec Sacha) : les vidéos rendues sont envoyées
 local via `curl -F` (comme les miniatures) — jamais de passage par le
 contexte du modèle, jamais de risque de corruption. Fonctionne
 confortablement sous la limite de 50 Mo de l'API Bot Telegram (rendus
-actuels : ~15 Mo). Google Drive n'est plus utilisé par le pipeline.
+actuels : ~15 Mo).
+
+**Ajout (demande explicite de Sacha) :** Google Drive reste utilisé,
+mais uniquement pour le **texte du script complet** de chaque vidéo
+générée — pas les vidéos/images. Un script (quelques Ko de texte) passe
+sans problème par le contenu inline de l'outil Drive ; c'est seulement
+les binaires volumineux (vidéos, images) qui posaient le problème
+ci-dessus. À chaque génération : le script complet (celui réellement
+utilisé pour la narration) est sauvegardé dans un fichier texte sur
+Drive, dossier `<config.name>/<YYYY-MM>/`, nommé d'après la date/le
+sujet. Le lien Drive du script est inclus dans le message Telegram
+envoyé à Sacha, pour qu'il puisse retrouver le texte intégral de ce qui
+est raconté dans chaque vidéo.
 
 Le repo Git ne contient toujours que du texte (config, calendrier,
 état) : aucun binaire (vidéo, image) n'y est committé — les fichiers

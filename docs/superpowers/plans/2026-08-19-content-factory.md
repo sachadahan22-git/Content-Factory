@@ -16,7 +16,7 @@
 - No generated media binaries (mp4, jpg, png, mp3) are committed to Git — they are delivered directly as Telegram attachments and never persisted anywhere else.
 - Every kie.ai / Remotion render call gets exactly 1 automatic retry on failure; a second failure sends a Telegram error message and leaves the topic at status `À faire` (never fails silently).
 - Calendar and state files use the exact schemas defined in Task 3 — every task that reads/writes them must conform to those schemas verbatim.
-- No file's bytes are ever routed through the model's own context (e.g. read into a tool call as base64/text) to get from local disk into a delivery destination — always stream from disk via `curl -F` (as Telegram delivery does) or an equivalent direct mechanism. This constraint exists because Task 6 discovered the Google Drive MCP tool's inline-base64-only upload does not scale to real render sizes and risks silent corruption; it was dropped from this plan for that reason (see Task 6).
+- No *existing local file's* bytes are ever read back into a tool call or the model's own context to get them to a delivery destination — always stream from disk via `curl -F` (as Telegram delivery does) or an equivalent direct mechanism. This constraint exists because Task 6 discovered the Google Drive MCP tool's inline-base64-only upload does not scale to real render sizes and risks silent corruption; video/image delivery was moved to direct Telegram attachments for that reason (see Task 6). This does NOT prohibit sending short text the model itself just generated (e.g. the script from step b) as inline content to a tool call — Google Drive is still used, but only for that: archiving each video's full script as a small text file, never for video/image binaries.
 
 ---
 
@@ -381,27 +381,47 @@ g. For each format in `config.yaml`'s `formats` list, invoke the
    proposal>, musicPath: undefined }`. Same retry/failure handling as
    step c (Telegram error + stop, leave topic at `À faire`).
 
-h. Using the Telegram send procedure: send one text message containing
-   `telegram_label`, the topic text, and the 3 title/description/
-   hashtags proposals; then send each rendered video as a separate
-   video message; then send each thumbnail as a separate photo
-   message. Record the `message_id` of the first (text) message.
-   (No upload step: every file is streamed straight from local disk to
-   Telegram — see Global Constraints on never routing file bytes
-   through the model's own context.)
+h. Save the full script text (from step b) to Google Drive, so Sacha
+   always has the complete narration text for every video. Use
+   ToolSearch (query: "google drive") to load the Drive MCP tools
+   (e.g. `mcp__claude_ai_Google_Drive__create_file`,
+   `mcp__claude_ai_Google_Drive__search_files`). Find or create a
+   folder named `<config.name>` at Drive root (search first via
+   `search_files` scoped to `mimeType = 'application/vnd.google-apps.folder'`;
+   create via `create_file` with `contentMimeType:
+   "application/vnd.google-apps.folder"` and no content if not found),
+   then find or create a `<YYYY-MM>` subfolder inside it the same way
+   (nesting via `parentId`). Create a text file inside that month
+   folder named `<topic-date>-script.txt` via `create_file` with
+   `contentMimeType: "text/plain"`, the script text as content, and
+   `parentId` set to the month folder's id. The response's `viewUrl` is
+   the script's Drive link. Same retry/failure handling as step c — a
+   failure here does not block video delivery; if it fails twice, note
+   in the Telegram message that the script archive step failed rather
+   than stopping the whole routine (the video itself is more time-
+   sensitive than the archive copy).
 
-i. Move the topic's line from `## À faire` to
+i. Using the Telegram send procedure: send one text message containing
+   `telegram_label`, the topic text, the 3 title/description/hashtags
+   proposals, and the Drive script link from step h; then send each
+   rendered video as a separate video message; then send each
+   thumbnail as a separate photo message. Record the `message_id` of
+   the first (text) message. (Videos/thumbnails: no upload step, every
+   file is streamed straight from local disk to Telegram — see Global
+   Constraints.)
+
+j. Move the topic's line from `## À faire` to
    `## Généré (en attente de validation Telegram)` in the calendar
-   file, appending ` | telegram_message_id: <id>` from step h.
+   file, appending ` | telegram_message_id: <id>` from step i.
 
-j. Update `state/telegram.json`: set
+k. Update `state/telegram.json`: set
    `pending["<message_id>"] = {"project": "<slug>", "type": "topic", "topic_date": "<date>"}`.
 ```
 
 - [ ] **Step 3: Verify — full generate cycle**
 
-Run the complete Generate-mode procedure (steps a-j) for `YoutubeStories` using the real bot from Task 2.
-Expected: a Telegram text message arrives containing the label, topic, and 3 metadata proposals; the 2 rendered videos (9:16 and 16:9) arrive as separate video messages; thumbnail photos arrive as separate photo messages; `YoutubeStories/calendar/2026-08.md` shows the topic under `## Généré...` with a `telegram_message_id`; `state/telegram.json` has a matching `pending` entry.
+Run the complete Generate-mode procedure (steps a-k) for `YoutubeStories` using the real bot from Task 2.
+Expected: a Telegram text message arrives containing the label, topic, 3 metadata proposals, and a Drive link to the script text file; the 2 rendered videos (9:16 and 16:9) arrive as separate video messages; thumbnail photos arrive as separate photo messages; opening the Drive link shows the exact script text used for narration; `YoutubeStories/calendar/2026-08.md` shows the topic under `## Généré...` with a `telegram_message_id`; `state/telegram.json` has a matching `pending` entry.
 
 - [ ] **Step 4: Commit**
 
@@ -451,10 +471,10 @@ d. If `pending[id].type == "topic"`: classify the message text.
      message referenced by the existing `telegram_message_id`).
      Remove the entry from `state.pending`.
    - Anything else: treat as a modification instruction. Re-run the
-     minimal subset of Generate-mode steps b-j implied by the
-     instruction (e.g. "change la voix" → redo step c then g-j only;
+     minimal subset of Generate-mode steps b-k implied by the
+     instruction (e.g. "change la voix" → redo step c then g-k only;
      "change le titre 2" → redo step b's metadata only then re-send
-     just the text message from step h), reusing the same
+     just the text message from step i), reusing the same
      `telegram_message_id` context. Leave the calendar entry under
      `## Généré...`.
 
@@ -624,7 +644,7 @@ git commit -m "Document scheduled routines"
 - [ ] **Step 1: Full real-topic cycle**
 
 Let `youtube-stories-generate` fire on its real schedule (or trigger it manually via `RemoteTrigger`) for the next real `## À faire` topic.
-Expected: Telegram delivery arrives with the 2 rendered videos (9:16 and 16:9) as video attachments, 2-3 thumbnails as photo attachments, and 3 title/description/hashtags proposals in the text message, matching Task 6's verified format.
+Expected: Telegram delivery arrives with the 2 rendered videos (9:16 and 16:9) as video attachments, 2-3 thumbnails as photo attachments, 3 title/description/hashtags proposals and a Drive script link in the text message, matching Task 6's verified format.
 
 - [ ] **Step 2: Modification round-trip**
 

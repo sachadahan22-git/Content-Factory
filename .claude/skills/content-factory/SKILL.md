@@ -55,22 +55,17 @@ g. For each format in `config.yaml`'s `formats` list, invoke the
    proposal>, musicPath: undefined }`. Same retry/failure handling as
    step c (Telegram error + stop, leave topic at `À faire`).
 
-h. Use ToolSearch (query: "google drive") to load the Google Drive MCP
-   tools, and upload each rendered mp4 and each thumbnail image into a
-   Drive folder named `<config.name>/<YYYY-MM>/`, creating it if it
-   does not exist. Collect a shareable link per uploaded file.
+h. Using the Telegram send procedure: send one text message containing
+   `telegram_label`, the topic text, and the 3 title/description/hashtags
+   proposals; then send each rendered video as a separate video message;
+   then send each thumbnail as a separate photo message. Record the
+   `message_id` of the first (text) message.
 
-i. Using the Telegram send procedure: send one text message containing
-   `telegram_label`, the topic text, the 3 title/description/hashtags
-   proposals, and the Drive links (one per rendered format); then send
-   each thumbnail as a separate photo message. Record the `message_id`
-   of the first (text) message.
-
-j. Move the topic's line from `## À faire` to
+i. Move the topic's line from `## À faire` to
    `## Généré (en attente de validation Telegram)` in the calendar
-   file, appending ` | telegram_message_id: <id>` from step i.
+   file, appending ` | telegram_message_id: <id>` from step h.
 
-k. Update `state/telegram.json`: set
+j. Update `state/telegram.json`: set
    `pending["<message_id>"] = {"project": "<slug>", "type": "topic", "topic_date": "<date>"}`.
 
 ## Telegram send procedure
@@ -81,6 +76,12 @@ The response's `result.message_id` is the Telegram message id to record in state
 
 To send a photo:
 `curl -s -F chat_id="$TELEGRAM_CHAT_ID" -F photo=@<local_path> "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendPhoto"`
+
+To send a video:
+`curl -s -F chat_id="$TELEGRAM_CHAT_ID" -F video=@<local_path> "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendVideo"`
+Telegram's Bot API caps uploads at 50MB. This must always stream the
+video directly from local disk via curl's `@<local_path>` — never read
+a video's bytes into a tool call or into the model's own context.
 
 On any non-`"ok":true` response: retry once; on a second failure, let
 the routine exit with an error (visible in the routine's run log) —

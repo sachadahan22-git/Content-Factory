@@ -4,7 +4,7 @@
 
 **Goal:** Build a reusable Claude Code skill + scheduled routines that automatically write, voice, illustrate, and edit short-form/long-form videos for Sacha's content projects (starting with "YouTube Stories"), and deliver them on Telegram for validation — no auto-posting.
 
-**Architecture:** One Git repo (`Business/`) holds a shared `content-factory` skill (three modes: generate / poll / monthly-plan) plus one config+calendar subfolder per project. Scheduled Claude Code routines invoke the skill per project on its own cadence. Generated media is uploaded to Google Drive; only text/config/state is committed to Git.
+**Architecture:** One Git repo (named `Business`, all paths below are relative to its root) holds a shared `content-factory` skill (three modes: generate / poll / monthly-plan) plus one config+calendar subfolder per project. Scheduled Claude Code routines invoke the skill per project on its own cadence. Generated media is uploaded to Google Drive; only text/config/state is committed to Git.
 
 **Tech Stack:** Claude Code skills (Markdown + tool calls), kie.ai MCP tools (`mcp__kie-art__*`) for TTS/images/video, Remotion (TS/React) for video assembly, Telegram Bot HTTP API via `curl`, Google Drive MCP connector for storage, Claude Code `schedule` skill for cron routines.
 
@@ -23,9 +23,9 @@
 ## Task 1: Repo skeleton
 
 **Files:**
-- Create: `Business/.gitignore`
-- Create: `Business/README.md`
-- Create: `Business/state/telegram.json`
+- Create: `.gitignore`
+- Create: `README.md`
+- Create: `state/telegram.json`
 
 **Interfaces:**
 - Produces: `state/telegram.json` with schema `{"offset": number, "pending": {"<telegram_message_id>": {"project": string, "type": "topic"|"monthly_plan", "topic_date"?: string, "topics"?: string[]}}}` — consumed by Tasks 6, 7, 8.
@@ -71,13 +71,12 @@ Save as `state/telegram.json`.
 
 - [ ] **Step 4: Verify**
 
-Run: `cd Business && git status --short`
+Run: `git status --short`
 Expected: three new untracked files listed (`.gitignore`, `README.md`, `state/telegram.json`), spec file from prior commit not listed as changed.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd "Business"
 git add .gitignore README.md state/telegram.json
 git commit -m "Add repo skeleton and telegram state seed file"
 ```
@@ -87,8 +86,8 @@ git commit -m "Add repo skeleton and telegram state seed file"
 ## Task 2: Telegram bot setup
 
 **Files:**
-- Create: `Business/.env` (gitignored, local only)
-- Create: `Business/.env.example`
+- Create: `.env` (gitignored, local only)
+- Create: `.env.example`
 
 **Interfaces:**
 - Produces: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` — consumed by every later task that sends/reads Telegram messages.
@@ -115,13 +114,13 @@ Expected: JSON containing `"message":{"chat":{"id": <NUMBER>, ...}}`. That `<NUM
 
 - [ ] **Step 4: Store credentials locally**
 
-Create `Business/.env`:
+Create `.env`:
 ```
 TELEGRAM_BOT_TOKEN=<TOKEN>
 TELEGRAM_CHAT_ID=<NUMBER>
 ```
 
-Create `Business/.env.example`:
+Create `.env.example`:
 ```
 TELEGRAM_BOT_TOKEN=
 TELEGRAM_CHAT_ID=
@@ -130,7 +129,7 @@ TELEGRAM_CHAT_ID=
 - [ ] **Step 5: Verify end-to-end send**
 
 ```bash
-source Business/.env
+source .env
 curl -s "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
   -d chat_id="$TELEGRAM_CHAT_ID" \
   -d text="✅ Content Factory bot connecté."
@@ -140,7 +139,6 @@ Expected: `"ok":true` in the response, and Sacha confirms the message arrived in
 - [ ] **Step 6: Commit**
 
 ```bash
-cd "Business"
 git add .env.example
 git commit -m "Add Telegram bot env template"
 ```
@@ -151,8 +149,8 @@ git commit -m "Add Telegram bot env template"
 ## Task 3: Project config, calendar and schema definitions for YoutubeStories
 
 **Files:**
-- Create: `Business/YoutubeStories/config.yaml`
-- Create: `Business/YoutubeStories/calendar/2026-08.md`
+- Create: `YoutubeStories/config.yaml`
+- Create: `YoutubeStories/calendar/2026-08.md`
 
 **Interfaces:**
 - Produces: `config.yaml` schema (`name`, `slug`, `niche`, `platforms`, `formats`, `voice`, `cadence`, `tone`, `telegram_label`) and calendar Markdown schema — both consumed by Tasks 5-8.
@@ -193,13 +191,12 @@ Rules for this format (documented here for consistency across all later tasks):
 
 - [ ] **Step 3: Verify**
 
-Run: `cat "Business/YoutubeStories/calendar/2026-08.md"`
+Run: `cat "YoutubeStories/calendar/2026-08.md"`
 Expected: exactly the three sections above, two seed topics under `À faire`, both other sections empty.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-cd "Business"
 git add YoutubeStories/config.yaml YoutubeStories/calendar/2026-08.md
 git commit -m "Add YoutubeStories project config and seed calendar"
 ```
@@ -209,9 +206,9 @@ git commit -m "Add YoutubeStories project config and seed calendar"
 ## Task 4: Remotion template for YoutubeStories
 
 **Files:**
-- Create: `Business/YoutubeStories/remotion/` (scaffolded project)
-- Create: `Business/YoutubeStories/remotion/src/Vertical.tsx`
-- Create: `Business/YoutubeStories/remotion/src/Horizontal.tsx`
+- Create: `YoutubeStories/remotion/` (scaffolded project)
+- Create: `YoutubeStories/remotion/src/Vertical.tsx`
+- Create: `YoutubeStories/remotion/src/Horizontal.tsx`
 
 **Interfaces:**
 - Consumes: nothing from earlier tasks (uses placeholder assets for its own verification).
@@ -219,7 +216,7 @@ git commit -m "Add YoutubeStories project config and seed calendar"
 
 - [ ] **Step 1: Scaffold the project**
 
-Invoke the `remotion-create` skill to scaffold a new Remotion project at `Business/YoutubeStories/remotion/`, TypeScript template.
+Invoke the `remotion-create` skill to scaffold a new Remotion project at `YoutubeStories/remotion/`, TypeScript template.
 
 - [ ] **Step 2: Read caption and multimedia conventions**
 
@@ -227,7 +224,7 @@ Invoke the `remotion-captions` skill and the `remotion-multimedia` skill to lear
 
 - [ ] **Step 3: Implement the `Vertical` composition**
 
-`Business/YoutubeStories/remotion/src/Vertical.tsx` — 1080x1920 composition that:
+`YoutubeStories/remotion/src/Vertical.tsx` — 1080x1920 composition that:
 - Accepts props `{ narrationAudioPath, visualClipPaths, title, musicPath }`.
 - Plays `narrationAudioPath` as the timeline's driving audio track (composition duration = audio duration).
 - Cross-fades through `visualClipPaths` evenly spaced across that duration.
@@ -237,7 +234,7 @@ Invoke the `remotion-captions` skill and the `remotion-multimedia` skill to lear
 
 - [ ] **Step 4: Implement the `Horizontal` composition**
 
-`Business/YoutubeStories/remotion/src/Horizontal.tsx` — same prop shape and behavior as `Vertical`, at 1920x1080, with layout adapted to landscape (visuals filling width, captions lower-third instead of centered).
+`YoutubeStories/remotion/src/Horizontal.tsx` — same prop shape and behavior as `Vertical`, at 1920x1080, with layout adapted to landscape (visuals filling width, captions lower-third instead of centered).
 
 - [ ] **Step 5: Register both compositions**
 
@@ -245,7 +242,7 @@ Update the project's root/index file so `Vertical` and `Horizontal` are both reg
 
 - [ ] **Step 6: Verify with a studio preview**
 
-Invoke the `remotion-studio` skill against `Business/YoutubeStories/remotion/` with placeholder props (a short silent local mp3 and one local placeholder jpg repeated 3x as `visualClipPaths`, `title: "Test"`).
+Invoke the `remotion-studio` skill against `YoutubeStories/remotion/` with placeholder props (a short silent local mp3 and one local placeholder jpg repeated 3x as `visualClipPaths`, `title: "Test"`).
 Expected: both compositions preview without runtime errors.
 
 - [ ] **Step 7: Verify with a real render**
@@ -256,7 +253,6 @@ Expected: two mp4 files produced, non-zero size, correct resolutions (`ffprobe -
 - [ ] **Step 8: Commit**
 
 ```bash
-cd "Business"
 git add YoutubeStories/remotion/
 git commit -m "Add Remotion Vertical and Horizontal compositions for YoutubeStories"
 ```
@@ -267,7 +263,7 @@ git commit -m "Add Remotion Vertical and Horizontal compositions for YoutubeStor
 ## Task 5: `content-factory` skill — Generate mode, content creation steps
 
 **Files:**
-- Create: `Business/.claude/skills/content-factory/SKILL.md`
+- Create: `.claude/skills/content-factory/SKILL.md`
 
 **Interfaces:**
 - Consumes: `config.yaml` schema and calendar Markdown schema from Task 3.
@@ -335,7 +331,6 @@ Expected: a script and 3 metadata proposals exist in the transcript; one local n
 - [ ] **Step 4: Commit**
 
 ```bash
-cd "Business"
 git add .claude/skills/content-factory/SKILL.md
 git commit -m "Add content-factory skill: generate mode content creation"
 ```
@@ -345,7 +340,7 @@ git commit -m "Add content-factory skill: generate mode content creation"
 ## Task 6: `content-factory` skill — Generate mode, assembly and delivery
 
 **Files:**
-- Modify: `Business/.claude/skills/content-factory/SKILL.md`
+- Modify: `.claude/skills/content-factory/SKILL.md`
 
 **Interfaces:**
 - Consumes: local asset paths from Task 5 step f; `Vertical`/`Horizontal` Remotion compositions and their prop shape from Task 4; `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` from Task 2; calendar/state schemas from Tasks 1 and 3.
@@ -407,7 +402,6 @@ Expected: a Telegram message arrives containing the label, topic, 3 metadata pro
 - [ ] **Step 4: Commit**
 
 ```bash
-cd "Business"
 git add .claude/skills/content-factory/SKILL.md YoutubeStories/calendar/2026-08.md state/telegram.json
 git commit -m "Add content-factory skill: generate mode assembly and delivery"
 ```
@@ -417,7 +411,7 @@ git commit -m "Add content-factory skill: generate mode assembly and delivery"
 ## Task 7: `content-factory` skill — Poll mode
 
 **Files:**
-- Modify: `Business/.claude/skills/content-factory/SKILL.md`
+- Modify: `.claude/skills/content-factory/SKILL.md`
 
 **Interfaces:**
 - Consumes: `state/telegram.json` schema (Task 1), calendar schema (Task 3), Telegram-send procedure (Task 6).
@@ -483,7 +477,6 @@ Expected: no crash, no calendar change, `state.offset` still advances past that 
 - [ ] **Step 4: Commit**
 
 ```bash
-cd "Business"
 git add .claude/skills/content-factory/SKILL.md
 git commit -m "Add content-factory skill: poll mode"
 ```
@@ -493,7 +486,7 @@ git commit -m "Add content-factory skill: poll mode"
 ## Task 8: `content-factory` skill — Monthly-plan mode
 
 **Files:**
-- Modify: `Business/.claude/skills/content-factory/SKILL.md`
+- Modify: `.claude/skills/content-factory/SKILL.md`
 
 **Interfaces:**
 - Consumes: `config.yaml` schema (Task 3), Telegram-send procedure (Task 6), `state/telegram.json` schema (Task 1).
@@ -551,7 +544,6 @@ Expected: all 8 topics appended under `## À faire` in `YoutubeStories/calendar/
 - [ ] **Step 4: Commit**
 
 ```bash
-cd "Business"
 git add .claude/skills/content-factory/SKILL.md YoutubeStories/calendar/2026-08.md state/telegram.json
 git commit -m "Add content-factory skill: monthly-plan mode"
 ```
@@ -561,7 +553,7 @@ git commit -m "Add content-factory skill: monthly-plan mode"
 ## Task 9: Wire up scheduled routines
 
 **Files:**
-- Modify: `Business/README.md`
+- Modify: `README.md`
 
 **Interfaces:**
 - Consumes: all three modes from Tasks 5-8; `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` from Task 2.
@@ -573,7 +565,7 @@ Use the `schedule` skill to create a routine:
 - Name: `youtube-stories-generate`
 - Schedule: every Monday and Thursday, 08:00 Europe/Paris
 - Prompt: `Run the content-factory skill (.claude/skills/content-factory/SKILL.md) in Generate mode for project YoutubeStories, in the Business repo.`
-- Secrets: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` (values from `Business/.env`)
+- Secrets: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` (values from `.env`)
 
 - [ ] **Step 2: Create the monthly-plan routine**
 
@@ -598,7 +590,7 @@ Expected: each run completes with the outcome already verified manually in Tasks
 
 - [ ] **Step 5: Document the routines**
 
-Append to `Business/README.md`:
+Append to `README.md`:
 
 ```markdown
 ## Scheduled routines
@@ -611,7 +603,6 @@ Append to `Business/README.md`:
 - [ ] **Step 6: Commit**
 
 ```bash
-cd "Business"
 git add README.md
 git commit -m "Document scheduled routines"
 ```

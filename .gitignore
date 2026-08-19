@@ -1,2 +1,8 @@
-
-.worktrees/
+node_modules/
+.env
+*.mp4
+*.mov
+*.mp3
+*.wav
+/tmp-render/
+.DS_Store

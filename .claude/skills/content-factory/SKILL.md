@@ -96,6 +96,49 @@ j. Move the topic's line from `## À faire` to
 k. Update `state/telegram.json`: set
    `pending["<message_id>"] = {"project": "<slug>", "type": "topic", "topic_date": "<date>"}`.
 
+## Poll mode
+
+No project slug is given — this checks every project.
+
+a. Read `state/telegram.json` for `offset`.
+
+b. `curl -s "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getUpdates?offset=$offset"`.
+   If the result list is empty, stop.
+
+c. For each update, read its message text and, if present, the
+   `message_id` it is a reply to (`reply_to_message.message_id`). Look
+   that id up in `state.pending`. If not found, and there is exactly
+   one entry in `state.pending` with `"type": "topic"`, use that one
+   (single-topic-in-flight fallback). If no match can be resolved,
+   skip this update (still counts toward the offset advance in step g).
+
+d. If `pending[id].type == "topic"`: classify the message text.
+   - Approval (case-insensitive match on "ok", "valide", "validé", or
+     the "👍" emoji): in the project's calendar file, move that topic's
+     line from `## Généré...` to `## Validé`, changing `- [ ]` to
+     `- [x]` (no extra suffix needed — the videos were already
+     delivered as Telegram attachments at generation time, in the
+     message referenced by the existing `telegram_message_id`).
+     Remove the entry from `state.pending`.
+   - Anything else: treat as a modification instruction. Re-run the
+     minimal subset of Generate-mode steps b-k implied by the
+     instruction (e.g. "change la voix" → redo step c then g-k only;
+     "change le titre 2" → redo step b's metadata only then re-send
+     just the text message from step i), reusing the same
+     `telegram_message_id` context. Leave the calendar entry under
+     `## Généré...`.
+
+e. If `pending[id].type == "monthly_plan"`: see "Monthly-plan mode"
+   below for how the reply is applied.
+
+f. If a topic modification re-render (step d) fails after 1 retry,
+   send a Telegram error message identifying the topic and leave state
+   unchanged for that entry — do not advance past it silently.
+
+g. After processing all updates, set `state.offset` to
+   `(highest update_id seen) + 1`, so already-seen messages are never
+   reprocessed, even the ones skipped in step c.
+
 ## Telegram send procedure
 
 To send a text message:

@@ -22,13 +22,17 @@ const HIGHLIGHT_COLOR = "#ffdd33";
  * `narration.wav` -> `narration.captions.json`. Transcription itself can't
  * happen inside the composition: `calculateMetadata` and the component
  * both run in a browser tab, which can't shell out to Whisper.cpp.
+ *
+ * `narrationAudioPath` may be a URL with a query string (e.g. a presigned/
+ * temporary URL from a TTS provider) - strip it before deriving the base,
+ * the same way `isImagePath` in `VisualClips.tsx` does, so we don't
+ * accidentally split on a `.` that appears inside query params.
  */
 function deriveCaptionsUrl(narrationAudioPath: string): string {
-  const dotIndex = narrationAudioPath.lastIndexOf(".");
+  const withoutQuery = narrationAudioPath.split("?")[0];
+  const dotIndex = withoutQuery.lastIndexOf(".");
   const base =
-    dotIndex === -1
-      ? narrationAudioPath
-      : narrationAudioPath.slice(0, dotIndex);
+    dotIndex === -1 ? withoutQuery : withoutQuery.slice(0, dotIndex);
   return `${base}.captions.json`;
 }
 
@@ -49,17 +53,27 @@ export const BurnedInCaptions: React.FC<{
   const { fps } = useVideoConfig();
 
   const fetchCaptions = useCallback(async () => {
+    const captionsUrl = deriveCaptionsUrl(narrationAudioPath);
     try {
-      const response = await fetch(deriveCaptionsUrl(narrationAudioPath));
+      const response = await fetch(captionsUrl);
       if (!response.ok) {
+        // No pre-generated captions available - burn in nothing rather
+        // than failing the whole render, but log it so a broken caption
+        // pipeline (e.g. a bad URL from Task 6) is discoverable in render
+        // logs instead of silently producing videos with no captions.
+        console.warn(
+          `[Captions] No captions found at ${captionsUrl} (status ${response.status}) - rendering without captions.`,
+        );
         setCaptions([]);
         return;
       }
       const data = (await response.json()) as Caption[];
       setCaptions(data);
-    } catch {
-      // No pre-generated captions available - burn in nothing rather than
-      // failing the whole render.
+    } catch (err) {
+      console.warn(
+        `[Captions] Failed to fetch/parse captions at ${captionsUrl} - rendering without captions.`,
+        err,
+      );
       setCaptions([]);
     } finally {
       continueRender(handle);

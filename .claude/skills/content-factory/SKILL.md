@@ -57,11 +57,23 @@ g. For each format in `config.yaml`'s `formats` list, invoke the
 
 h. Save the full script text (from step b) to Google Drive. Use
    ToolSearch (query: "google drive") to load the Drive MCP tools.
-   Find or create a folder named `<config.name>` at Drive root, then
-   find or create a `<YYYY-MM>` subfolder inside it (`create_file` with
-   `contentMimeType: "application/vnd.google-apps.folder"` and,
-   for the subfolder, `parentId` set to the parent folder's id).
-   Create a text file inside that month folder named
+   For both the root folder and the month subfolder below, always
+   search before creating, so repeated runs reuse the same folders
+   instead of scattering duplicates:
+   - Root folder: call `search_files` with
+     `title = '<config.name>' and mimeType = 'application/vnd.google-apps.folder' and parentId = 'root'`.
+     If a result is returned, use its id. Otherwise `create_file` with
+     `title: <config.name>` and
+     `contentMimeType: "application/vnd.google-apps.folder"` (no
+     `parentId` — this places it at Drive root) and use the new file's
+     id.
+   - Month subfolder: call `search_files` with
+     `title = '<YYYY-MM>' and mimeType = 'application/vnd.google-apps.folder' and parentId = '<root folder id>'`.
+     If a result is returned, use its id. Otherwise `create_file` with
+     `title: <YYYY-MM>`, `contentMimeType:
+     "application/vnd.google-apps.folder"`, and `parentId` set to the
+     root folder's id, then use the new file's id.
+   Then create a text file inside that month folder named
    `<topic-date>-script.txt` via `create_file` with
    `contentMimeType: "text/plain"`, the script text as content, the
    month folder's id as `parentId`, and `disableConversionToGoogleType:

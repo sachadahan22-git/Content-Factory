@@ -7,4 +7,4 @@ Automated content generation pipeline for Sacha's video projects.
 - Shared engine: `.claude/skills/content-factory/`
 - Projects: one subfolder each (e.g. `YoutubeStories/`), containing `config.yaml` and `calendar/`.
 
-Generated media (video, images, audio) is stored on Google Drive, never committed here.
+Generated media (video, images, audio) is delivered directly via Telegram, never committed here.

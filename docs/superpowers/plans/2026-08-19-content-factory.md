@@ -4,19 +4,19 @@
 
 **Goal:** Build a reusable Claude Code skill + scheduled routines that automatically write, voice, illustrate, and edit short-form/long-form videos for Sacha's content projects (starting with "YouTube Stories"), and deliver them on Telegram for validation — no auto-posting.
 
-**Architecture:** One Git repo (named `Business`, all paths below are relative to its root) holds a shared `content-factory` skill (three modes: generate / poll / monthly-plan) plus one config+calendar subfolder per project. Scheduled Claude Code routines invoke the skill per project on its own cadence. Generated media is uploaded to Google Drive; only text/config/state is committed to Git.
+**Architecture:** One Git repo (named `Business`, all paths below are relative to its root) holds a shared `content-factory` skill (three modes: generate / poll / monthly-plan) plus one config+calendar subfolder per project. Scheduled Claude Code routines invoke the skill per project on its own cadence. Generated media is delivered directly as Telegram attachments (streamed from local disk, never routed through the model's context); only text/config/state is committed to Git.
 
-**Tech Stack:** Claude Code skills (Markdown + tool calls), kie.ai MCP tools (`mcp__kie-art__*`) for TTS/images/video, Remotion (TS/React) for video assembly, Telegram Bot HTTP API via `curl`, Google Drive MCP connector for storage, Claude Code `schedule` skill for cron routines.
+**Tech Stack:** Claude Code skills (Markdown + tool calls), kie.ai MCP tools (`mcp__kie-art__*`) for TTS/images/video, Remotion (TS/React) for video assembly, Telegram Bot HTTP API via `curl` (including direct video/photo delivery), Claude Code `schedule` skill for cron routines.
 
 **Spec:** `docs/superpowers/specs/2026-08-19-content-factory-design.md`
 
 ## Global Constraints
 
 - No secrets (Telegram bot token, etc.) are ever committed to Git — routine secrets only, plus a local gitignored `.env` for manual testing.
-- No generated media binaries (mp4, jpg, png, mp3) are committed to Git — they live on Google Drive; only links are stored in text files.
+- No generated media binaries (mp4, jpg, png, mp3) are committed to Git — they are delivered directly as Telegram attachments and never persisted anywhere else.
 - Every kie.ai / Remotion render call gets exactly 1 automatic retry on failure; a second failure sends a Telegram error message and leaves the topic at status `À faire` (never fails silently).
 - Calendar and state files use the exact schemas defined in Task 3 — every task that reads/writes them must conform to those schemas verbatim.
-- Google Drive upload (Task 6 step h) requires Sacha to have authorized the Google Drive connector in his claude.ai connector settings beforehand — this cannot be done by Claude. Confirm this is done before running Task 6's verification step; if not yet authorized, pause Task 6 there and ask Sacha to authorize it.
+- No file's bytes are ever routed through the model's own context (e.g. read into a tool call as base64/text) to get from local disk into a delivery destination — always stream from disk via `curl -F` (as Telegram delivery does) or an equivalent direct mechanism. This constraint exists because Task 6 discovered the Google Drive MCP tool's inline-base64-only upload does not scale to real render sizes and risks silent corruption; it was dropped from this plan for that reason (see Task 6).
 
 ---
 
@@ -55,7 +55,7 @@ Automated content generation pipeline for Sacha's video projects.
 - Shared engine: `.claude/skills/content-factory/`
 - Projects: one subfolder each (e.g. `YoutubeStories/`), containing `config.yaml` and `calendar/`.
 
-Generated media (video, images, audio) is stored on Google Drive, never committed here.
+Generated media (video, images, audio) is delivered directly via Telegram, never committed here.
 ```
 
 - [ ] **Step 3: Create seed state file**
@@ -187,7 +187,7 @@ Rules for this format (documented here for consistency across all later tasks):
 - Three fixed sections, in this order: `## À faire`, `## Généré (en attente de validation Telegram)`, `## Validé`.
 - Each topic is one line: `- [ ] YYYY-MM-DD | <sujet>` while pending, `- [x] YYYY-MM-DD | <sujet>` once validated.
 - Once a topic is picked up for generation, its line moves from `À faire` to `Généré...` and gets a ` | telegram_message_id: <id>` suffix appended.
-- Once validated, the line moves to `Validé`, keeps the `telegram_message_id` suffix, and gets ` | drive_link: <url>` appended (first format's link if multiple).
+- Once validated, the line moves to `Validé`, keeping the `telegram_message_id` suffix — no extra suffix is added (the rendered video files were already delivered as Telegram attachments at generation time, in the message referenced by that id).
 
 - [ ] **Step 3: Verify**
 
@@ -358,6 +358,12 @@ The response's `result.message_id` is the Telegram message id to record in state
 To send a photo:
 `curl -s -F chat_id="$TELEGRAM_CHAT_ID" -F photo=@<local_path> "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendPhoto"`
 
+To send a video (streamed directly from local disk — never read the
+file's bytes into a tool call or the model's own context first):
+`curl -s -F chat_id="$TELEGRAM_CHAT_ID" -F video=@<local_path> "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendVideo"`
+Telegram's Bot API caps uploads at 50MB per file; Remotion renders for
+this kind of short-form content comfortably fit (~15MB observed).
+
 On any non-`"ok":true` response: retry once; on a second failure, let
 the routine exit with an error (visible in the routine's run log) —
 do not attempt a Telegram error notification for a Telegram failure.
@@ -375,29 +381,27 @@ g. For each format in `config.yaml`'s `formats` list, invoke the
    proposal>, musicPath: undefined }`. Same retry/failure handling as
    step c (Telegram error + stop, leave topic at `À faire`).
 
-h. Use ToolSearch (query: "google drive") to load the Google Drive MCP
-   tools, and upload each rendered mp4 and each thumbnail image into a
-   Drive folder named `<config.name>/<YYYY-MM>/`, creating it if it
-   does not exist. Collect a shareable link per uploaded file.
+h. Using the Telegram send procedure: send one text message containing
+   `telegram_label`, the topic text, and the 3 title/description/
+   hashtags proposals; then send each rendered video as a separate
+   video message; then send each thumbnail as a separate photo
+   message. Record the `message_id` of the first (text) message.
+   (No upload step: every file is streamed straight from local disk to
+   Telegram — see Global Constraints on never routing file bytes
+   through the model's own context.)
 
-i. Using the Telegram send procedure: send one text message containing
-   `telegram_label`, the topic text, the 3 title/description/hashtags
-   proposals, and the Drive links (one per rendered format); then send
-   each thumbnail as a separate photo message. Record the `message_id`
-   of the first (text) message.
-
-j. Move the topic's line from `## À faire` to
+i. Move the topic's line from `## À faire` to
    `## Généré (en attente de validation Telegram)` in the calendar
-   file, appending ` | telegram_message_id: <id>` from step i.
+   file, appending ` | telegram_message_id: <id>` from step h.
 
-k. Update `state/telegram.json`: set
+j. Update `state/telegram.json`: set
    `pending["<message_id>"] = {"project": "<slug>", "type": "topic", "topic_date": "<date>"}`.
 ```
 
 - [ ] **Step 3: Verify — full generate cycle**
 
-Run the complete Generate-mode procedure (steps a-k) for `YoutubeStories` using the real bot from Task 2.
-Expected: a Telegram message arrives containing the label, topic, 3 metadata proposals, and 2 Drive links (9:16 and 16:9); thumbnail photos arrive as separate messages; `YoutubeStories/calendar/2026-08.md` shows the topic under `## Généré...` with a `telegram_message_id`; `state/telegram.json` has a matching `pending` entry.
+Run the complete Generate-mode procedure (steps a-j) for `YoutubeStories` using the real bot from Task 2.
+Expected: a Telegram text message arrives containing the label, topic, and 3 metadata proposals; the 2 rendered videos (9:16 and 16:9) arrive as separate video messages; thumbnail photos arrive as separate photo messages; `YoutubeStories/calendar/2026-08.md` shows the topic under `## Généré...` with a `telegram_message_id`; `state/telegram.json` has a matching `pending` entry.
 
 - [ ] **Step 4: Commit**
 
@@ -442,13 +446,15 @@ d. If `pending[id].type == "topic"`: classify the message text.
    - Approval (case-insensitive match on "ok", "valide", "validé", or
      the "👍" emoji): in the project's calendar file, move that topic's
      line from `## Généré...` to `## Validé`, changing `- [ ]` to
-     `- [x]` and appending ` | drive_link: <first Drive link from the
-     original delivery>`. Remove the entry from `state.pending`.
+     `- [x]` (no extra suffix needed — the videos were already
+     delivered as Telegram attachments at generation time, in the
+     message referenced by the existing `telegram_message_id`).
+     Remove the entry from `state.pending`.
    - Anything else: treat as a modification instruction. Re-run the
-     minimal subset of Generate-mode steps b-k implied by the
-     instruction (e.g. "change la voix" → redo step c then g-k only;
+     minimal subset of Generate-mode steps b-j implied by the
+     instruction (e.g. "change la voix" → redo step c then g-j only;
      "change le titre 2" → redo step b's metadata only then re-send
-     just the text message from step i), reusing the same
+     just the text message from step h), reusing the same
      `telegram_message_id` context. Leave the calendar entry under
      `## Généré...`.
 
@@ -467,7 +473,7 @@ g. After processing all updates, set `state.offset` to
 - [ ] **Step 2: Verify — approval path**
 
 Reply "ok" (in Telegram, to the message from Task 6's verification) and run Poll mode once.
-Expected: the topic's calendar line moves to `## Validé` with `- [x]` and a `drive_link` suffix; its entry is removed from `state.pending`; `state.offset` increased.
+Expected: the topic's calendar line moves to `## Validé` with `- [x]`; its entry is removed from `state.pending`; `state.offset` increased.
 
 - [ ] **Step 3: Verify — offset advances even without a match**
 
@@ -618,7 +624,7 @@ git commit -m "Document scheduled routines"
 - [ ] **Step 1: Full real-topic cycle**
 
 Let `youtube-stories-generate` fire on its real schedule (or trigger it manually via `RemoteTrigger`) for the next real `## À faire` topic.
-Expected: Telegram delivery arrives with 2 Drive links (9:16 and 16:9), 2-3 thumbnails, and 3 title/description/hashtags proposals, matching Task 6's verified format.
+Expected: Telegram delivery arrives with the 2 rendered videos (9:16 and 16:9) as video attachments, 2-3 thumbnails as photo attachments, and 3 title/description/hashtags proposals in the text message, matching Task 6's verified format.
 
 - [ ] **Step 2: Modification round-trip**
 
@@ -628,7 +634,7 @@ Expected: an updated Telegram message arrives reflecting only the requested chan
 - [ ] **Step 3: Approval round-trip**
 
 Reply "ok". Wait for (or manually trigger) the next poll run.
-Expected: the calendar entry moves to `## Validé` with a `drive_link`.
+Expected: the calendar entry moves to `## Validé`.
 
 - [ ] **Step 4: Confirm with Sacha**
 

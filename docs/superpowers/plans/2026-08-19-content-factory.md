@@ -458,9 +458,17 @@ b. `curl -s "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getUpdates?offset=$
 c. For each update, read its message text and, if present, the
    `message_id` it is a reply to (`reply_to_message.message_id`). Look
    that id up in `state.pending`. If not found, and there is exactly
-   one entry in `state.pending` with `"type": "topic"`, use that one
-   (single-topic-in-flight fallback). If no match can be resolved,
-   skip this update (still counts toward the offset advance in step g).
+   one entry in `state.pending`, AND this update's own `message_id` is
+   greater than that entry's key (i.e. it was sent chronologically
+   after that delivery — Telegram message ids increase monotonically
+   per chat), use that entry (single-topic-in-flight fallback). This
+   recency guard exists because the very first poll run will typically
+   find old backlog in the update queue (e.g. bot-setup test messages
+   sent before any pending entry existed) — without it, that backlog
+   would be misread as a modification instruction for whatever topic
+   happens to be pending. If no match can be resolved (including
+   backlog filtered out by the recency guard), skip this update (still
+   counts toward the offset advance in step g).
 
 d. If `pending[id].type == "topic"`: classify the message text.
    - Approval (case-insensitive match on "ok", "valide", "validé", or

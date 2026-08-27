@@ -474,7 +474,30 @@ c. For each update, read its message text and, if present, the
    backlog filtered out by the recency guard), skip this update (still
    counts toward the offset advance in step g).
 
-d. If `pending[id].type == "topic"`: classify the message text.
+d. If `pending[id].type == "topic"`: first check whether the update
+   has usable text.
+   - No `.text` field, but it has a `.voice` object: attempt
+     transcription. Fetch the file via
+     `getFile?file_id=<voice.file_id>` then download it from
+     `https://api.telegram.org/file/bot$TELEGRAM_BOT_TOKEN/<file_path>`,
+     upload it with `mcp__kie-art__upload_file`, then call
+     `mcp__kie-art__speech_to_text` with `language_code: "fr"` (rename
+     the local file with a `.ogg` extension before uploading — Telegram
+     voice notes report as `.oga` but the transcription tool only
+     accepts the format under an `.ogg` name). Same retry-once rule as
+     elsewhere; if it still fails (this API has been observed to be
+     flaky), fall through to the "no usable text" case below rather
+     than blocking. If it succeeds, use the transcribed text as the
+     message text and continue to the classification step below.
+   - No `.text` field and no `.voice` (e.g. a sticker, or a voice
+     transcription that failed): this is "no usable text" — send a
+     Telegram error message via the Telegram send procedure asking
+     Sacha to resend his feedback as text, and skip this update without
+     consuming the pending entry (leave `state.pending` and the
+     calendar entry unchanged; the update still counts toward the
+     offset advance in step g, same as any other unmatched update — an
+     unread sticker isn't retried forever).
+   - Otherwise, classify the message text (transcribed or original):
    - Approval (case-insensitive match on "ok", "valide", "validé", or
      the "👍" emoji): in the project's calendar file, move that topic's
      line from `## Généré...` to `## Validé`, changing `- [ ]` to

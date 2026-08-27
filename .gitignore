@@ -4,6 +4,11 @@ node_modules/
 *.mov
 *.mp3
 *.wav
+*.jpg
+*.jpeg
+*.png
+*.webp
+!YoutubeStories/remotion/public/placeholder.jpg
 /tmp-render/
 .DS_Store
 .worktrees/

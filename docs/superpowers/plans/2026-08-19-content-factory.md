@@ -359,8 +359,12 @@ To send a photo:
 `curl -s -F chat_id="$TELEGRAM_CHAT_ID" -F photo=@<local_path> "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendPhoto"`
 
 To send a video (streamed directly from local disk — never read the
-file's bytes into a tool call or the model's own context first):
-`curl -s -F chat_id="$TELEGRAM_CHAT_ID" -F video=@<local_path> "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendVideo"`
+file's bytes into a tool call or the model's own context first), ALWAYS
+passing explicit `width`/`height`/`duration` (probed via Remotion's
+bundled ffmpeg) plus `supports_streaming=true` — confirmed by real
+testing that Telegram's player otherwise displays the video as a 320x320
+square regardless of the file's actual dimensions:
+`curl -s -F chat_id="$TELEGRAM_CHAT_ID" -F video=@<local_path> -F width=<w> -F height=<h> -F duration=<seconds> -F supports_streaming=true "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendVideo"`
 Telegram's Bot API caps uploads at 50MB per file; Remotion renders for
 this kind of short-form content comfortably fit (~15MB observed).
 

@@ -156,11 +156,31 @@ The response's `result.message_id` is the Telegram message id to record in state
 To send a photo:
 `curl -s -F chat_id="$TELEGRAM_CHAT_ID" -F photo=@<local_path> "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendPhoto"`
 
-To send a video:
-`curl -s -F chat_id="$TELEGRAM_CHAT_ID" -F video=@<local_path> "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendVideo"`
+To send a video, ALWAYS pass explicit `width`, `height`, and `duration`
+(probed from the actual rendered file — see below), plus
+`supports_streaming=true`:
+`curl -s -F chat_id="$TELEGRAM_CHAT_ID" -F video=@<local_path> -F width=<w> -F height=<h> -F duration=<seconds> -F supports_streaming=true "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendVideo"`
 Telegram's Bot API caps uploads at 50MB. This must always stream the
 video directly from local disk via curl's `@<local_path>` — never read
 a video's bytes into a tool call or into the model's own context.
+
+**Do not omit width/height/duration.** Confirmed by real testing: without
+them, Telegram's player displays the video as a 320x320 square regardless
+of the file's real dimensions (its own `sendVideo` response echoes back
+`width: 320, height: 320, duration: 0` as a placeholder when they're
+omitted) — the file itself is correct, but Telegram never learns its
+real shape without being told. Probe the real values first using
+Remotion's bundled ffmpeg (no system ffmpeg exists in this environment):
+```bash
+COMPOSITOR_DIR="YoutubeStories/remotion/node_modules/@remotion/compositor-darwin-arm64"
+DYLD_LIBRARY_PATH="$PWD/$COMPOSITOR_DIR" "$COMPOSITOR_DIR/ffmpeg" -i <local_path> 2>&1 | grep -i "Video:\|Duration"
+```
+Parse `<width>x<height>` and the `Duration: HH:MM:SS.ff` line (convert
+to whole seconds) from that output, then pass them as the curl
+parameters above. Confirm the `sendVideo` response's `result.width` /
+`result.height` match what you passed — if they still come back as
+320x320, something upstream of this call is still wrong; do not treat
+a mismatch as cosmetic.
 
 On any non-`"ok":true` response: retry once; on a second failure, let
 the routine exit with an error (visible in the routine's run log) —

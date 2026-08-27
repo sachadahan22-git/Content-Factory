@@ -10,6 +10,20 @@
       "project": "youtube-stories",
       "type": "topic",
       "topic_date": "2026-08-19"
+    },
+    "23": {
+      "project": "youtube-stories",
+      "type": "monthly_plan",
+      "topics": [
+        "Le stagiaire qui a repéré une faille dans un contrat qui allait couler l'entreprise — et qui est devenu associé six mois plus tard",
+        "La caissière qui a reconnu un client recherché depuis 10 ans et touché la prime la plus improbable de sa vie",
+        "L'ouvrier qui a inventé une pièce dans son garage pendant sa pause déjeuner — et qui a fini par la vendre à l'entreprise qui l'employait",
+        "La secrétaire qui gérait l'agenda d'un PDG véreux et qui a tout fait tomber avec un simple carnet",
+        "Le chauffeur VTC qui a surpris une conversation qui valait des millions — et qui a changé de vie en une nuit",
+        "L'étudiante fauchée qui a résolu en pleine nuit le bug qui bloquait toute une startup — et qui en est devenue la CTO",
+        "Le vigile de nuit qui a découvert le vrai scandale derrière l'entrepôt qu'il surveillait",
+        "La vendeuse de marché qui a flairé l'arnaque avant tout le monde — et sauvé l'économie de son village"
+      ]
     }
   }
 }

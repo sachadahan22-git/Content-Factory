@@ -159,8 +159,19 @@ d. If `pending[id].type == "topic"`: first check whether the update
      `telegram_message_id` context. Leave the calendar entry under
      `## Généré...`.
 
-e. If `pending[id].type == "monthly_plan"`: see "Monthly-plan mode"
-   below for how the reply is applied.
+e. If `pending[id].type == "monthly_plan"`:
+   - Approval (case-insensitive match on "ok", "valide", "validé", or
+     the "👍" emoji): append every topic in `pending[id].topics` to the
+     current month's calendar file under `## À faire`, each as
+     `- [ ] <today's date> | <topic>`. Remove the entry from
+     `state.pending`.
+   - Anything else: treat as edits (e.g. "enlève le 3 et le 6, ajoute
+     une histoire sur ..."). Recompute the topic list accordingly,
+     re-send the updated numbered list via the Telegram send procedure
+     reusing the same `pending` entry (update its `topics` array in
+     place under the same `id` key — do not create a new `pending`
+     entry for the resend), and do not append anything to the calendar
+     yet.
 
 f. If a topic modification re-render (step d) fails after 1 retry,
    send a Telegram error message identifying the topic and leave state
@@ -169,6 +180,24 @@ f. If a topic modification re-render (step d) fails after 1 retry,
 g. After processing all updates, set `state.offset` to
    `(highest update_id seen) + 1`, so already-seen messages are never
    reprocessed, even the ones skipped in step c.
+
+## Monthly-plan mode
+
+Given a project slug:
+
+a. Read `<ProjectFolder>/config.yaml`, and every `## À faire` /
+   `## Généré...` / `## Validé` line from the last 2 months of calendar
+   files (to avoid duplicate topics).
+
+b. Propose 8 new topic ideas fitting `niche` and `tone`, none
+   duplicating or closely resembling an existing entry.
+
+c. Using the Telegram send procedure, send a numbered list of the 8
+   proposed topics with `telegram_label`, asking for validation or
+   edits. Record the returned `message_id`.
+
+d. Update `state/telegram.json`:
+   `pending["<message_id>"] = {"project": "<slug>", "type": "monthly_plan", "topics": [<the 8 strings>]}`.
 
 ## Telegram send procedure
 

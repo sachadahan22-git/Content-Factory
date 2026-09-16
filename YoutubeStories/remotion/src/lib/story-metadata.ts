@@ -26,7 +26,12 @@ export const createCalculateStoryMetadata = (dimensions: {
       }),
     });
 
-    const durationInSeconds = await input.computeDuration();
+    let durationInSeconds: number;
+    try {
+      durationInSeconds = await input.computeDuration();
+    } finally {
+      input.dispose();
+    }
 
     return {
       durationInFrames: Math.max(1, Math.ceil(durationInSeconds * FPS)),

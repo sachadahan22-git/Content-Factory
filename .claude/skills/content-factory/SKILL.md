@@ -26,6 +26,13 @@ b. Write a script matching `niche` and `tone` from the config
    `{title, description, hashtags}` tailored to the project's
    `platforms`.
 
+Steps c, d, and e below are independent of each other (none consumes
+another's output) — kick off their generation calls without waiting
+for a prior step to fully finish polling/downloading, rather than
+running them strictly one after another, since each involves its own
+generate-then-poll round trip against kie.ai and running them
+back-to-back needlessly multiplies the pipeline's wall-clock time.
+
 c. If `config.yaml` has `voice: true`: use ToolSearch
    (`select:mcp__kie-art__generate_tts,mcp__kie-art__generate_gemini_tts`)
    to load the TTS tool schema, synthesize narration audio from the
@@ -114,9 +121,14 @@ c. For each update, read its message text and, if present, the
    doesn't match a pending entry — e.g. Sacha typed a fresh message
    instead of using Telegram's reply-swipe), fall back to the pending
    entry with the highest key that is still less than this update's own
-   `message_id` (i.e. the most recently delivered pending item that
-   this update could plausibly be replying to — Telegram message ids
-   increase monotonically per chat). This most-recent-pending fallback
+   `message_id` — `state.pending`'s keys are JSON string keys (e.g.
+   `"9"`, `"170687081"`), so this comparison MUST be done on the keys
+   parsed as integers, never as strings (lexicographic string
+   comparison would put `"9"` after `"170687081"` and pick the wrong,
+   much older entry). The intent is: the most recently delivered
+   pending item that this update could plausibly be replying to
+   (Telegram message ids increase monotonically per chat). This
+   most-recent-pending fallback
    replaces an earlier, narrower version that only applied when exactly
    one entry was pending — real usage regularly has several pending at
    once (e.g. a topic delivery and a monthly-plan proposal open

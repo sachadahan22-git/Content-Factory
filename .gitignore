@@ -9,6 +9,8 @@ node_modules/
 *.png
 *.webp
 !YoutubeStories/remotion/public/placeholder.jpg
+!YoutubeStories/remotion/public/placeholder-narration.wav
+!YoutubeStories/remotion/public/placeholder-music.wav
 /tmp-render/
 .DS_Store
 .worktrees/

@@ -3,11 +3,12 @@ import { AbsoluteFill, Img, useVideoConfig } from "remotion";
 import { Video } from "@remotion/media";
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import { fade } from "@remotion/transitions/fade";
+import { stripQueryString } from "./url";
 
 const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"];
 
 function isImagePath(src: string): boolean {
-  const withoutQuery = src.toLowerCase().split("?")[0];
+  const withoutQuery = stripQueryString(src.toLowerCase());
   return IMAGE_EXTENSIONS.some((ext) => withoutQuery.endsWith(ext));
 }
 

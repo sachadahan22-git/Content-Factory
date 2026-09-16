@@ -9,6 +9,7 @@ import {
 import { createTikTokStyleCaptions } from "@remotion/captions";
 import type { Caption, TikTokPage } from "@remotion/captions";
 import type { StoryVariant } from "./types";
+import { stripQueryString } from "./url";
 
 // How often the caption page switches, in milliseconds. Higher = more
 // words shown at once, lower = closer to word-by-word.
@@ -24,12 +25,13 @@ const HIGHLIGHT_COLOR = "#ffdd33";
  * both run in a browser tab, which can't shell out to Whisper.cpp.
  *
  * `narrationAudioPath` may be a URL with a query string (e.g. a presigned/
- * temporary URL from a TTS provider) - strip it before deriving the base,
- * the same way `isImagePath` in `VisualClips.tsx` does, so we don't
- * accidentally split on a `.` that appears inside query params.
+ * temporary URL from a TTS provider) - strip it before deriving the base
+ * (shared `stripQueryString` helper, also used by `VisualClips.tsx`'s
+ * `isImagePath`) so we don't accidentally split on a `.` that appears
+ * inside query params.
  */
 function deriveCaptionsUrl(narrationAudioPath: string): string {
-  const withoutQuery = narrationAudioPath.split("?")[0];
+  const withoutQuery = stripQueryString(narrationAudioPath);
   const dotIndex = withoutQuery.lastIndexOf(".");
   const base =
     dotIndex === -1 ? withoutQuery : withoutQuery.slice(0, dotIndex);

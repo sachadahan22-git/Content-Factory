@@ -34,7 +34,10 @@ c. If `config.yaml` has `voice: true`: use ToolSearch
    second failure, send a Telegram error message identifying the topic
    and stop, leaving the calendar line under `## À faire` untouched.
 
-d. Generate visuals: split the script into 4-8 scenes/beats. For each,
+d. Generate visuals: split the script into 12-20 scenes/beats (roughly
+   double-to-triple the cut rate of a plain 4-8 split, per Sacha's
+   request for more dynamic pacing — shorter beats, more visual
+   variety, faster cuts). For each,
    use ToolSearch (`select:mcp__kie-art__generate_image,mcp__kie-art__generate_video`)
    and call the appropriate tool with a scene-specific prompt derived
    from that scene's text. Download each result locally. Same retry/

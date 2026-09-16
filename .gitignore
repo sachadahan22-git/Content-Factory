@@ -1,1 +1,16 @@
+node_modules/
+.env
+*.mp4
+*.mov
+*.mp3
+*.wav
+*.jpg
+*.jpeg
+*.png
+*.webp
+!YoutubeStories/remotion/public/placeholder.jpg
+!YoutubeStories/remotion/public/placeholder-narration.wav
+!YoutubeStories/remotion/public/placeholder-music.wav
+/tmp-render/
+.DS_Store
 .worktrees/

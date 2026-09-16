@@ -32,10 +32,11 @@ Un dépôt Git unique, `Business/`, contient :
   partagé avec la config d'un projet donné — ce sont les "sous-agents"
   mentionnés par Sacha.
 
-Les fichiers volumineux générés (vidéos, miniatures) sont uploadés sur
-Google Drive et seulement référencés (lien) dans le repo Git et dans
-Telegram — le repo Git ne contient que texte/config, pas de binaires
-lourds.
+Les fichiers volumineux générés (vidéos, miniatures) sont envoyés
+directement en pièce jointe sur Telegram (streamés depuis le disque
+local, jamais via un stockage intermédiaire ni via le contexte du
+modèle) — le repo Git ne contient que texte/config, pas de binaires
+lourds. Voir §8 pour le raisonnement détaillé derrière ce choix.
 
 ```
                 ┌─────────────────────────┐
@@ -106,14 +107,13 @@ routine cron. Le moteur ne connaît aucun projet en dur.
    kie.ai `generate_image`.
 8. **Montage** : assemblage Remotion dans chaque format listé dans
    `formats` (9:16 et/ou 16:9), rendu final.
-9. **Upload** : vidéo(s) + miniatures uploadées sur Google Drive, lien
-   récupéré.
-10. **Livraison Telegram** : envoi du/des lien(s) Drive + miniatures + les
-    3 propositions de titre/description/hashtags, avec le libellé du
-    projet. Le sujet passe au statut `en_attente_validation`, l'ID du
-    message Telegram est enregistré dans `state/telegram.json` pour le
-    routage des réponses.
-11. La routine se termine (elle ne reste pas active en attente d'une
+9. **Livraison Telegram** : envoi direct des vidéo(s) rendues (en pièce
+   jointe, streamées depuis le disque local — pas de service de stockage
+   intermédiaire) + miniatures + les 3 propositions de titre/description/
+   hashtags, avec le libellé du projet. Le sujet passe au statut
+   `en_attente_validation`, l'ID du message Telegram est enregistré dans
+   `state/telegram.json` pour le routage des réponses.
+10. La routine se termine (elle ne reste pas active en attente d'une
     réponse — voir §5).
 
 ## 5. Boucle de validation Telegram
@@ -132,8 +132,9 @@ vs ~15 min) jugé non prioritaire.
   réponse correspond (réponse = reply à un message précis, ou dernier
   sujet `en_attente_validation` du projet si pas de contexte explicite).
 - Si la réponse est une validation (ex. "ok", "valide") → statut du sujet
-  passe à `validé`, fichiers restent sur Drive pour que Sacha les
-  récupère et poste lui-même.
+  passe à `validé` ; les vidéos ont déjà été reçues directement sur
+  Telegram lors de la génération, Sacha les récupère depuis la
+  conversation pour les poster lui-même.
 - Si la réponse contient une demande de modification → la routine
   ré-invoque le skill `content-factory` en mode régénération ciblée
   (ex. "refais la voix", "change le titre 2") sur les seules étapes
@@ -158,15 +159,39 @@ projet identifie la source de chaque message). Création via @BotFather
 d'environnement sécurisée sur les routines Claude Code — jamais en clair
 dans le repo Git.
 
-## 8. Stockage Google Drive
+## 8. Livraison des fichiers générés
 
-Prérequis : Sacha doit autoriser le connecteur Google Drive dans ses
-paramètres claude.ai avant que les routines puissent uploader dessus
-(Claude ne peut pas déclencher cette autorisation lui-même).
+**Décision révisée pendant l'implémentation (Tâche 6) :** le plan
+d'origine prévoyait un upload vers Google Drive avant l'envoi du lien sur
+Telegram. En pratique, l'outil MCP Google Drive disponible n'accepte que
+du contenu en base64 inline dans l'appel d'outil (pas d'upload par
+streaming/URL) — inutilisable pour de vraies vidéos de 10-20 Mo sans
+faire transiter le fichier entier, caractère par caractère, par le
+contexte du modèle (risque réel de corruption silencieuse, en plus d'être
+infaisable au-delà de quelques centaines de Ko).
 
-Le repo Git ne contient que du texte (config, calendrier, état) : aucun
-binaire (vidéo, image) n'y est committé. Un dossier Drive par projet,
-organisé par mois, contiendra les livrables.
+Décision (validée avec Sacha) : les vidéos rendues sont envoyées
+**directement en pièce jointe Telegram**, streamées depuis le disque
+local via `curl -F` (comme les miniatures) — jamais de passage par le
+contexte du modèle, jamais de risque de corruption. Fonctionne
+confortablement sous la limite de 50 Mo de l'API Bot Telegram (rendus
+actuels : ~15 Mo).
+
+**Ajout (demande explicite de Sacha) :** Google Drive reste utilisé,
+mais uniquement pour le **texte du script complet** de chaque vidéo
+générée — pas les vidéos/images. Un script (quelques Ko de texte) passe
+sans problème par le contenu inline de l'outil Drive ; c'est seulement
+les binaires volumineux (vidéos, images) qui posaient le problème
+ci-dessus. À chaque génération : le script complet (celui réellement
+utilisé pour la narration) est sauvegardé dans un fichier texte sur
+Drive, dossier `<config.name>/<YYYY-MM>/`, nommé d'après la date/le
+sujet. Le lien Drive du script est inclus dans le message Telegram
+envoyé à Sacha, pour qu'il puisse retrouver le texte intégral de ce qui
+est raconté dans chaque vidéo.
+
+Le repo Git ne contient toujours que du texte (config, calendrier,
+état) : aucun binaire (vidéo, image) n'y est committé — les fichiers
+générés vivent uniquement dans la conversation Telegram.
 
 ## 9. Gestion des erreurs
 
@@ -182,7 +207,7 @@ organisé par mois, contiendra les livrables.
 
 Avant d'activer les routines planifiées : un test manuel bout-en-bout du
 pipeline sur le projet YouTube Stories (un sujet réel, du script jusqu'à
-la réception sur Telegram avec Drive + miniatures + 3 propositions de
+la réception sur Telegram des vidéos + miniatures + 3 propositions de
 titre/description/hashtags), pour valider l'enchaînement complet avant
 mise en cron.
 

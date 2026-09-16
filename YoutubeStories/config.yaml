@@ -1,0 +1,9 @@
+name: "YouTube Stories"
+slug: youtube-stories
+niche: "Histoires business et histoires incroyables (entrepreneurs, retournements de situation, anecdotes vraies bluffantes)"
+platforms: [youtube]
+formats: [9:16, 16:9]
+voice: true
+cadence: "2x/semaine (lundi et jeudi)"
+tone: "narratif, immersif, rythmé, avec un twist ou une révélation"
+telegram_label: "📺 YT Stories"

@@ -70,7 +70,7 @@ name: "YouTube Stories"
 slug: youtube-stories
 niche: "Histoires business et histoires incroyables (entrepreneurs, retournements de situation, anecdotes vraies bluffantes)"
 tone: "narratif, immersif, rythmé, avec un twist ou une révélation"
-cadence: "2x/semaine (lundi et jeudi)"
+cadence: "1x/semaine (dimanche) — court et long ensemble"
 ```
 
 ### `short/config.yaml`

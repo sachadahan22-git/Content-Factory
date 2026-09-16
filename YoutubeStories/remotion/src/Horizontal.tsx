@@ -34,7 +34,7 @@ export const Horizontal: React.FC<StoryProps> = ({
       <CrossfadingVisuals clipPaths={visualClipPaths} />
       <Audio src={narrationAudioPath} />
       {musicPath ? <Audio src={musicPath} volume={0.12} /> : null}
-      <TitleOverlay title={title} variant="lower-third" />
+      <TitleOverlay title={title} variant="centered" />
       <BurnedInCaptions
         narrationAudioPath={narrationAudioPath}
         variant="lower-third"

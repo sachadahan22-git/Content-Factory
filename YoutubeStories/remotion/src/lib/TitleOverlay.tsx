@@ -54,7 +54,8 @@ const AnimatedTitle: React.FC<{
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
   );
   const opacity = Math.min(entrance, exitProgress);
-  const translateY = interpolate(entrance, [0, 1], [30, 0]);
+  const translateY = interpolate(entrance, [0, 1], [24, 0]);
+  const scale = interpolate(entrance, [0, 1], [0.92, 1]);
 
   return (
     <AbsoluteFill
@@ -67,16 +68,30 @@ const AnimatedTitle: React.FC<{
       <div
         style={{
           opacity,
-          transform: `translateY(${translateY}px)`,
-          fontFamily: "Helvetica, Arial, sans-serif",
-          fontWeight: 800,
-          fontSize: variant === "centered" ? 88 : 64,
-          color: "white",
-          textAlign: "center",
-          textShadow: "0 4px 24px rgba(0,0,0,0.6)",
+          transform: `translateY(${translateY}px) scale(${scale})`,
+          background:
+            "linear-gradient(135deg, rgba(15,15,20,0.82), rgba(15,15,20,0.62))",
+          borderRadius: 28,
+          padding: variant === "centered" ? "36px 56px" : "24px 44px",
+          borderLeft: "8px solid #FFC93C",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.45)",
+          maxWidth: "92%",
         }}
       >
-        {title}
+        <div
+          style={{
+            fontFamily: "Helvetica, Arial, sans-serif",
+            fontWeight: 800,
+            fontSize: variant === "centered" ? 84 : 60,
+            lineHeight: 1.12,
+            letterSpacing: -0.5,
+            color: "white",
+            textAlign: "center",
+            textShadow: "0 4px 24px rgba(0,0,0,0.6)",
+          }}
+        >
+          {title}
+        </div>
       </div>
     </AbsoluteFill>
   );

@@ -678,17 +678,17 @@ git commit -m "Document scheduled routines"
 
 - [ ] **Step 1: Full real-topic cycle**
 
-Let `youtube-stories-generate` fire on its real schedule (or trigger it manually via `RemoteTrigger`) for the next real `## À faire` topic.
+Per Task 9's ruling, the 3 scheduled routines are disabled (platform limitations: this environment's egress policy blocks api.telegram.org, and kie-art isn't available to cloud routines) — run Generate mode manually in a normal Claude Code session (with kie-art + Telegram configured) for the next real `## À faire` topic. Run Monthly-plan mode first if the current month's `## À faire` is empty.
 Expected: Telegram delivery arrives with the 2 rendered videos (9:16 and 16:9) as video attachments, 2-3 thumbnails as photo attachments, 3 title/description/hashtags proposals and a Drive script link in the text message, matching Task 6's verified format.
 
 - [ ] **Step 2: Modification round-trip**
 
-Reply on Telegram with a concrete change request (e.g. "change le titre 3"). Wait for (or manually trigger) the next `content-factory-telegram-poll` run.
+Reply on Telegram with a concrete change request (e.g. "change le titre 3"). Run Poll mode manually.
 Expected: an updated Telegram message arrives reflecting only the requested change; the calendar entry is still under `## Généré...`.
 
 - [ ] **Step 3: Approval round-trip**
 
-Reply "ok". Wait for (or manually trigger) the next poll run.
+Reply "ok". Run Poll mode manually.
 Expected: the calendar entry moves to `## Validé`.
 
 - [ ] **Step 4: Confirm with Sacha**
